@@ -4,45 +4,54 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
+const mongoose = require("mongoose");
+const { Schema } = mongoose;
 
-const homeStartingContent = "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
-const aboutContent = "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
-const contactContent = "Scelerisque eleifend donec pretium vulputate sapien. Rhoncus urna neque viverra justo nec ultrices. Arcu dui vivamus arcu felis bibendum. Consectetur adipiscing elit duis tristique. Risus viverra adipiscing at in tellus integer feugiat. Sapien nec sagittis aliquam malesuada bibendum arcu vitae. Consequat interdum varius sit amet mattis. Iaculis nunc sed augue lacus. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Pulvinar elementum integer enim neque. Ultrices gravida dictum fusce ut placerat orci nulla. Mauris in aliquam sem fringilla ut morbi tincidunt. Tortor posuere ac ut consequat semper viverra nam libero.";
-
-const app = express();
-
+const homeStartingContent = "Hello there, my name is Csaba Nagy. Welcome to my programming blog. Here you can read my little stories from my long journey of programming. I hope you find it as interesting as me!";
 const posts = [];
 
+const app = express();
+// **** APP CONFIGS ****
 app.set('view engine', 'ejs');
 
-app.use(bodyParser.urlencoded({
-  extended: true
-}));
+app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(express.static("public"));
 
-function checkPostsForExistingTitle(title) {
+// **** DB CONFIGS ****
+const postSchema = new Schema({
+  title: String,
+  text: String
+});
 
-}
+const Post = mongoose.model("Post", postSchema);
 
+mongoose.connect(`mongodb+srv://${process.env.MONGO_USERNAME}:${process.env.MONGO_PASSWORD}@cluster0.a8w3bum.mongodb.net/CodeBlogDB`);
 
+//**** ENDPOINTS ****
 app.get("/", (req, res) => {
-  res.render("home", {
-    homeStarterData: homeStartingContent,
-    posts: posts
+  Post.find((error, foundPosts) => {
+    if (error) {
+      console.log(error);
+      res.render("blog", {
+        homeStarterData: homeStartingContent,
+        posts: posts
+      });
+    }else {
+      res.render("blog", {
+        homeStarterData: homeStartingContent,
+        posts: foundPosts
+      });
+    }
   });
 });
 
 app.get("/about", (req, res) => {
-  res.render("about", {
-    aboutStarterData: aboutContent
-  });
+  res.render("about");
 });
 
 app.get("/contact", (req, res) => {
-  res.render("contact", {
-    contactStarterData: contactContent
-  });
+  res.render("contact");
 });
 
 app.get("/compose", (req, res) => {
@@ -50,33 +59,28 @@ app.get("/compose", (req, res) => {
 });
 
 app.post("/compose", (req, res) => {
-  let post = {
+  let newPost = new Post({
     title: req.body.postTitle,
     text: req.body.postText
-  };
-  posts.push(post);
-  res.redirect("/");
+  });
+  newPost.save((err) => {
+    if(err) {
+      console.log(err);
+    }
+    res.redirect("/");
+  });
 });
 
-app.get("/posts/:postName", (req, res) => {
-  let title = req.params.postName;
-  let postToShow = {};
-  let found = false;
-  posts.forEach(post => {
-    if (_.lowerCase(post.title) === _.lowerCase(title)) {
-      postToShow = post;
-      found = true;
+app.get("/posts/:postId", (req, res) => {
+  let id = req.params.postId;
+  Post.findOne({_id: id}, (err, postToShow) => {
+    if(err) {
+      console.log(err);
+      res.redirect("/");
+    }else {
+      res.render("post", {tPost: postToShow});
     }
   });
-
-  if (found) {
-    res.render("post", {
-      tPost: postToShow
-    });
-  } else {
-    res.redirect("/");
-  }
-
 });
 
 app.listen(3000, function() {
